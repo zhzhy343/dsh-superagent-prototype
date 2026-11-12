@@ -55,4 +55,9 @@ export const KV = {
   feishu: { chats: record<Record<string, boolean>>('feishu-chats'), history: family<string, [chat: string]>('feishu-history:'),
     topics: family<Record<string, string>, [chat: string]>('feishu-history-threads:'),
     seen: family<string[], [thread: string]>('thread-seen:'), initialized: family<boolean, [thread: string]>('thread-initialized:') },
+  /**
+   * Weixin Source: the read cursor of each issue or merge request stream, and the newest note id already read on a Thread
+   * (notes have no updated time, so an edited note is not replayed).
+   */
+  weixin: { since: family<string, [stream: string]>('weixin-since:'), note: family<number, [thread: string]>('weixin-note:') },
 }

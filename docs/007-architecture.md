@@ -249,7 +249,7 @@ Each model request binds the Session to the current prompt revision. The revisio
 | `src/app/tools/main.ts`, `src/app/tools/executor.ts` | Tool arguments of the main Session and the Executor Sessions into calls of the core classes, and their results into cards |
 | `src/app/http.ts`, `src/app/views/`, `src/app/api.ts` | HTTP requests into calls, and Store reads into the panel's views; `api.ts` types every route for the panel |
 | `src/app/resources.ts`, `src/app/links.ts`, `src/app/cards.ts` | Resource names into reads, source messages into links, records into compact cards for models |
-| `src/sources/github*.ts`, `src/sources/feishu*.ts`, `src/sources/poll.ts` | GitHub and Feishu payloads into Triggers and Thread facts, and messages into CLI calls |
+| `src/sources/github*.ts`, `src/sources/feishu*.ts`, `src/sources/weixin*.ts`, `src/sources/poll.ts` | GitHub, Feishu and Weixin payloads into Triggers and Thread facts, and messages into CLI or API calls |
 | `src/deployment.ts`, `src/setup.ts`, `src/infra/` | Setup probes and problems, CLI transport, the agent's process environment |
 
 ## Dependency rules
@@ -372,6 +372,11 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `src/sources/feishu-loops.ts` | The Feishu loops: the event consumer, history recovery, chat names and polling of subscribed topics |
 | `src/sources/feishu-channel.ts` | The Feishu Channel: topic replies, `sent` or `gone` |
 | `src/sources/feishu-read.ts` | The `feishu/` reads of a Trigger's message, its root, parent and topic, and `feishuThreadContext`, which gives them to assessments with their images |
+| `src/sources/weixin.ts` | The Weixin kind and plugin entry, exported as `./weixin-watch`: its settings, policy, environment, health, and a poll round of issues and merge requests |
+| `src/sources/weixin-api.ts` | The git.weixin.qq.com GitLab-v3-compatible API: the private-key file header, error mapping, and project paths |
+| `src/sources/weixin-trigger.ts` | Issues, merge requests and notes as Triggers, their Thread ids, Channel addresses, pages and `find` |
+| `src/sources/weixin-channel.ts` | The Weixin Channel: notes with an idempotency marker, `sent` or `gone` |
+| `src/sources/weixin-read.ts` | `weixinThreadContext`: an issue's or merge request's body and notes by page |
 | `src/sources/admission-context.ts` | The bounded window an assessment starts from: the first pages of a Trigger's Thread, read through its kind, and the messages around the Trigger |
 | `src/sources/feishu-image.ts` | Reads a Feishu message's image as an attachment for the assessing Session |
 | `src/client/index.tsx` | The client plugin entry: the sidebar entry, the main panel and the page in DeepSeek Harness's Plugin Manager |
@@ -397,7 +402,7 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `src/client/locales.ts` | All copy in both languages, and the glossary of [001 Domain model](001-domain.md) |
 | `src/client/client.css`, `css.d.ts` | The panel's stylesheet, loaded as text |
 
-`src/sources/github.ts` and `src/sources/feishu.ts` are also the entries of the two Source plugins, built by `tsdown.config.ts` and exported in `package.json` as `./github-watch` and `./feishu-watch`. The bundle's `cordis.patch.yml` inserts the three plugins, with Feishu disabled.
+`src/sources/github.ts`, `src/sources/feishu.ts` and `src/sources/weixin.ts` are also the entries of the three Source plugins, built by `tsdown.config.ts` and exported in `package.json` as `./github-watch`, `./feishu-watch` and `./weixin-watch`. The bundle's `cordis.patch.yml` inserts the four plugins, with Feishu and Weixin disabled.
 
 ## Tests
 
@@ -408,6 +413,7 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `tests/policy.spec.ts` | Source scope, the gate, the admission table, Mandate revalidation, the Policy version, settings migrations and assessment outcomes |
 | `tests/registry.spec.ts` | `SourceRegistry`: instances, validation, Policy parts, Channels and Thread context |
 | `tests/sources.spec.ts` | The Feishu and GitHub Sources on a `SourceContext`: translation, polls and read positions, the pull request rules, health |
+| `tests/weixin.spec.ts` | The Weixin Source: triggers, mention parsing, `find`, polling baselines and note cursors, the Channel's marker and `gone`, context reads, scope and environment |
 | `tests/commands.spec.ts` | CLI calls as the deployment's accounts, the Channels' answers, and repository-scoped GitHub calls |
 | `tests/feishu-read.spec.ts`, `tests/github-read.spec.ts` | Feishu and GitHub reads |
 | `tests/admission-context.spec.ts`, `tests/feishu-image.spec.ts` | The Thread window of assessments, and Feishu image reads |

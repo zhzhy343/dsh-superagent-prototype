@@ -6,7 +6,7 @@ Use this guide to install, configure and operate dsh-superagent. It covers accou
 
 - **A dedicated DeepSeek Harness profile**, called `superagent` in this guide. Create it from the Web profile template. It loads the bundle and serves its panel on `127.0.0.1`. Keep it separate from the profile you work in: the plugin changes process-wide `PATH` and git settings, and its process needs independent restarts and upgrades.
 - **An agent GitHub account.** The agent comments, pushes branches and opens pull requests as this account, through a GitHub CLI signed in only as that account.
-- **Optional:** a Feishu bot for chat requests.
+- **Optional:** a Feishu bot for chat requests, or a project on git.weixin.qq.com.
 
 Plugin configuration holds the state directory and machine limits. Use the panel for everything else: Sources for the repository and accounts, Policy for allowed lists, and Execution for worker directories and commands.
 
@@ -21,10 +21,11 @@ Both presets run with `danger-full-access` as the operator's OS user and read me
 ## Prerequisites
 
 - Node.js 22.19+ or 24+, pnpm, git 2.32+, Python 3.8+ and tmux
-- GitHub CLI (`gh`) 2.48 or later. Source CLI fields must point to `gh` or `lark-cli` wrappers; the host relies on their subcommands and output formats.
+- GitHub CLI (`gh`) 2.48 or later. GitHub and Feishu Source CLI fields must point to `gh` or `lark-cli` wrappers; the host relies on their subcommands and output formats.
 - A repository on github.com; GitHub Enterprise Server is not supported. To create a checkout per Ticket, keep a local clone from which the prepare command can add worktrees. Install `git-lfs` if that repository uses Git LFS.
 - A model provider configured for DeepSeek Harness. dsh-superagent uses the profile's default model unless the Eval or Execution settings name another.
 - For Feishu: `lark-cli` (tested with 1.0.90) and a Feishu or Lark app with a bot
+- For a WeChat code repository: a project on git.weixin.qq.com and an account private key, saved to a file as below
 
 ## Accounts
 
@@ -68,6 +69,21 @@ Both presets run with `danger-full-access` as the operator's OS user and read me
 
    Both configurations share the keychain entry for the app secret. To remove only the bot configuration, delete its directory; do not run `lark-cli config remove`, which would affect the shared secret.
 
+### WeChat code repository (optional)
+
+1. On git.weixin.qq.com, open the account's settings and create a **Private Key** for API access. Save it in a file that only the operator can read:
+
+   ```sh
+   install -m 600 /dev/null "$HOME/.dsh/weixin-key"
+   "${EDITOR:-vi}" "$HOME/.dsh/weixin-key"
+   ```
+
+   Paste the key into the editor and save, so it does not enter the shell history. The Source reads this file for each request. Do not put the key in settings, a prompt, an environment variable or a shell history.
+2. Note the project's path as `namespace/project`, the part after the host in its web address.
+3. Enable the `dsh-superagent-weixin` plugin (see Machine configuration), then set the project and the absolute key-file path on the Weixin card.
+
+The Source polls the project's issues and merge requests, receives their comments, and posts replies as notes. It leaves the deployment's GitHub account and checkout unchanged: code work still runs through the Execution prepare command and the worker's git credentials, and the bundled prompts and skills remain GitHub-oriented.
+
 ## Install
 
 Run this block once, on a machine that has no `superagent` profile yet:
@@ -88,7 +104,7 @@ Run the profile-creation command only for a new installation. If the profile alr
 
 ## Machine configuration
 
-Copy [examples/profile.cordis.patch.yml](../examples/profile.cordis.patch.yml) to `~/.dsh/profiles/superagent/cordis.patch.yml`, replacing that file, and replace every `<placeholder>`. For Feishu, also enable the `dsh-superagent-feishu` entry there. The `webserver` entry sets the panel's port.
+Copy [examples/profile.cordis.patch.yml](../examples/profile.cordis.patch.yml) to `~/.dsh/profiles/superagent/cordis.patch.yml`, replacing that file, and replace every `<placeholder>`. For Feishu, also enable the `dsh-superagent-feishu` entry there; for a WeChat code repository, enable `dsh-superagent-weixin`. The `webserver` entry sets the panel's port.
 
 | Key | Required | Meaning |
 | --- | --- | --- |
@@ -199,8 +215,8 @@ A refusal has a status and `error`, its English text:
 
 The blocks:
 
-- `source:github`, `source:feishu`: `{"enabled": true, "config": {…}}`. GitHub's config has `repository` and `cli`, and the switches `observeIssues`, `observePulls`, `observeComments` and `observeCi`, off by default, which receive every new Issue, new pull request and comment in the repository and the default branch's CI; Feishu's has `cli`, `chats` as `[{"chatId": "oc_…", "name": "…", "listen": "mentions"}]` (or `"all"`), `directMessages`, and `otherChats` as `"none"` or `"mentions"`.
-- `policy`: `{"rules": […], "sources": {"github": {"allowed": [{"id": "<login>"}], "bots": [{"id": "dependabot[bot]"}]}, "feishu": {"allowed": [{"id": "ou_…", "name": "…"}], "syncChat": "oc_…", "admission": {"oc_…": {"unlistedAddressed": "explicit"}}}}}`. `bots` lists the bots whose messages may become inferred candidates. An `admission` row is keyed by chat id, `other` or `direct` for Feishu, and by `issues`, `pulls`, `comments` or `ci` for GitHub; an unset cell takes its default (see [002 Authorization](002-authorization.md)).
+- `source:github`, `source:feishu`, `source:weixin`: `{"enabled": true, "config": {…}}`. GitHub's config has `repository` and `cli`, and the switches `observeIssues`, `observePulls`, `observeComments` and `observeCi`, off by default, which receive every new Issue, new pull request and comment in the repository and the default branch's CI; Feishu's has `cli`, `chats` as `[{"chatId": "oc_…", "name": "…", "listen": "mentions"}]` (or `"all"`), `directMessages`, and `otherChats` as `"none"` or `"mentions"`; Weixin's has `repository` as `namespace/project`, `tokenFile` as an absolute path, the switches `observeIssues`, `observePulls` and `observeComments`, off by default, and the advanced `pollSeconds` and `failuresBeforeError`.
+- `policy`: `{"rules": […], "sources": {"github": {"allowed": [{"id": "<login>"}], "bots": [{"id": "dependabot[bot]"}]}, "feishu": {"allowed": [{"id": "ou_…", "name": "…"}], "syncChat": "oc_…", "admission": {"oc_…": {"unlistedAddressed": "explicit"}}}, "weixin": {"allowed": [{"id": "<account>"}], "admission": {"issues": {"unlistedAddressed": "explicit"}}}}}`. `bots` lists the bots whose messages may become inferred candidates. An `admission` row is keyed by chat id, `other` or `direct` for Feishu, by `issues`, `pulls`, `comments` or `ci` for GitHub, and by `issues`, `pulls` or `comments` for Weixin; an unset cell takes its default (see [002 Authorization](002-authorization.md)).
 - `eval`: `mode`, `timeoutSeconds` and `model`.
 - `executor`: `model`, `maxWorkers`, `directory`, `prepare` and `blockedCommands`. The processing pause is a setting of its own, `paused`, which `POST executor/pause` sets.
 
@@ -228,7 +244,7 @@ A file in `worker-bin` or `worker-gitconfig` that dsh-superagent did not write s
 
 ## Try it
 
-From an allowed GitHub account, open an Issue or post a comment containing `@<agent login> <request>`. Within a polling interval (one minute by default), Overview should show a Ticket. The agent acknowledges the request, works in its own Session and directory, and delivers in the original conversation. For Feishu, mention the bot in a configured chat.
+From an allowed GitHub account, open an Issue or post a comment containing `@<agent login> <request>`. Within a polling interval (one minute by default), Overview should show a Ticket. The agent acknowledges the request, works in its own Session and directory, and delivers in the original conversation. For Feishu, mention the bot in a configured chat. For a WeChat code repository, mention the agent's account in an issue, merge request or comment; the reply is posted as a note.
 
 ## Upgrade
 
@@ -256,6 +272,8 @@ Setup problems appear on the overview with a link to the fix, in the panel's lan
 | `The agent GitHub CLI cannot read its account` | Sign the wrapper in with `auth login` |
 | `@… cannot read …` or `@… cannot push to …` | Give the agent account write access to the repository |
 | `The GitHub Source names no repository.` | Set the repository, `owner/name`, on the GitHub card |
+| `Cannot read the private-key file …` | Set the key file's absolute path on the Weixin card and make it readable by the operator |
+| `The private key was rejected: …` | Create a new Private Key on git.weixin.qq.com and replace the file's contents |
 | A Ticket fails with `The prepare command failed: …` | The output names the cause, such as a wrong clone path; fix the command, then retry the Ticket |
 | `git does not read the github.com credential configuration dsh-superagent writes` | Install git 2.32 or later |
 | A Ticket fails with `The git configuration of the repository in … sets …` | Remove the named credential or `http.*.extraheader` settings from the clone's `.git/config` |
